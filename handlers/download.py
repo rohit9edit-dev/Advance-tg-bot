@@ -64,4 +64,34 @@ async def handle_link_access(message: Message):
     
     # In a real implementation, download from Telegram channel
     # For now, simulate with a placeholder
+    await message.answer(f"Downloading file: {file_record.name}")        return
+        
+    if link.is_revoked:
+        await message.answer("This link has been revoked.")
+        return
+        
+    if link.expires_at and link.expires_at < datetime.utcnow():
+        await message.answer("This link has expired.")
+        return
+        
+    # Get file information
+    file_record = await FileService.get_file_by_id(link.file_id)
+    if not file_record:
+        await message.answer("File not found.")
+        return
+        
+    # Log access
+    from database.models.access_log import AccessLog
+    async with AsyncSessionLocal() as session:
+        log_entry = AccessLog(
+            link_token=token,
+            user_id=link.owner_id,
+            ip_address=message.from_user.id,
+            user_agent="Telegram Bot"
+        )
+        session.add(log_entry)
+        await session.commit()
+    
+    # In a real implementation, download from Telegram channel
+    # For now, simulate with a placeholder
     await message.answer(f"Downloading file: {file_record.name}")
