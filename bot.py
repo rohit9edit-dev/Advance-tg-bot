@@ -4,7 +4,6 @@ from aiogram import Dispatcher, types
 from aiogram.filters import Command
 from core.dispatcher import setup_dispatcher
 from core.middleware import AuthMiddleware, ForceJoinMiddleware
-from core.scheduler import scheduler
 from handlers.start import router as start_router
 from handlers.upload import router as upload_router
 from handlers.download import router as download_router
@@ -37,19 +36,12 @@ async def main():
     dp.include_router(admin_router)
     dp.include_router(error_router)
     
-    # Start scheduler
-    await scheduler.start()
-    
     # Start polling
     from core.client import get_telegram_bot
     bot = get_telegram_bot()
     
     logger.info("Starting bot...")
-    try:
-        await dp.start_polling(bot)
-    finally:
-        # Ensure scheduler is stopped when bot shuts down
-        await scheduler.stop()
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
