@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  COMPANY
+  ADMIN
+}
+
+enum JobStatus {
+  PENDING_APPROVAL
+  LIVE
+  REJECTED
+  CLOSED
+}
+
+enum ApplicationStatus {
+  PENDING
+  REVIEWING
+  SHORTLISTED
+  REJECTED
+  ACCEPTED
+}
+
+model User {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  email             String            @unique
+  password          String
+  fullName          String
+  role              Role              @default(USER)
+  phone             String?
+  profilePicture    String?
+  resumeUrl         String?
+  isVerified        Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Job Seeker Specific
+  applications      Application[]
+  savedJobs         SavedJob[]
+  documents         Document[]
+  achievements      Achievement[]
+  referralCode      String?           @unique
+  referredBy        String?
+  points            Int               @default(0)
+  subscriptionTier  String            @default("FREE")
+
+  // AI Coach
+  conversations     AIConversation[]
+  aiUsage           AIUsage?
+
+  // Company Specific
+  company           Company?          @relation(fields: [companyId], references: [id])
+  companyId         String?           @db.ObjectId
+
+  @@map("users")
+}
+
+model Company {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  description       String?
+  logo              String?
+  website           String?
+  address           String?
+  isVerified        Boolean           @default(false)
+  verificationDocs  String[]
+  jobs              Job[]
+  members           User[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("companies")
+}
+
+model GovtJob {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  organization      String            // e.g., SSC, Railway
+  description       String
+  eligibility       String
+  qualification     String
+  state             String?
+  category          String?
+  salary            String?
+  vacancies         Int
+  lastDate          DateTime
+  officialPdfUrl    String?
+  applyLink         String?
+  status            JobStatus         @default(PENDING_APPROVAL)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("govt_jobs")
+}
+
+model Job {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  description       String
+  companyId         String            @db.ObjectId
+  company           Company           @relation(fields: [companyId], references: [id])
+  location          String
+  salary            String?
+  experience        String?
+  type              String            @default("Full-time")
+  status            JobStatus         @default(PENDING_APPROVAL)
+  applications      Application[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("jobs")
+}
+
+model Scheme {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  title             String
+  description       String
+  category          String
+  state             String?
+  department        String?
+  eligibility       String
+  benefits          String
+  requiredDocs      String[]
+  applyLink         String?
+  status            JobStatus         @default(PENDING_APPROVAL)
+  applications      SchemeApplication[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("schemes")
+}
+
+model Application {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  jobId             String            @db.ObjectId
+  job               Job               @relation(fields: [jobId], references: [id])
+  userId            String            @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  status            ApplicationStatus @default(PENDING)
+  resumeUrl         String?
+  answers           Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("applications")
+}
+
+model SchemeApplication {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  schemeId          String            @db.ObjectId
+  scheme            Scheme            @relation(fields: [schemeId], references: [id])
+  userId            String            @db.ObjectId
+  status            String            @default("PENDING")
+  documents         String[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("scheme_applications")
+}
+
+model AIConversation {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  message           String
+  response          String
+  context           Json?
+  tokensUsed        Int?
+  createdAt         DateTime          @default(now())
+
+  @@map("ai_conversations")
+}
+
+model AIUsage {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @unique @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  messagesToday     Int               @default(0)
+  lastResetDate     DateTime          @default(now())
+  totalMessages     Int               @default(0)
+  subscriptionTier  String            @default("FREE")
+
+  @@map("ai_usage")
+}
+
+model SavedJob {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  jobId             String?           @db.ObjectId
+  govtJobId         String?           @db.ObjectId
+  createdAt         DateTime          @default(now())
+
+  @@map("saved_jobs")
+}
+
+model Document {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  name              String
+  url               String
+  type              String
+  createdAt         DateTime          @default(now())
+
+  @@map("documents")
+}
+
+model Achievement {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  user              User              @relation(fields: [userId], references: [id])
+  title             String
+  description       String
+  badgeUrl          String?
+  createdAt         DateTime          @default(now())
+
+  @@map("achievements")
+}
+
+model Payment {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String            @db.ObjectId
+  amount            Float
+  currency          String            @default("INR")
+  status            String
+  razorpayOrderId   String            @unique
+  razorpayPaymentId String?           @unique
+  razorpaySignature String?
+  purpose           String            // e.g., "JOB_POST", "SUBSCRIPTION", "RESUME_SERVICE"
+  createdAt         DateTime          @default(now())
+
+  @@map("payments")
+}
